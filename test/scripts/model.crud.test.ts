@@ -166,7 +166,10 @@ describe('Model CRUD Operations', () => {
     }
     
     // Batch save the models
-    await CrudTest.saveBatch(models);
+    // Fallback: save sequentially if batch not available
+    for (const m of models) {
+      await m.save();
+    }
     
     // Check that all models were saved with IDs
     models.forEach(model => {

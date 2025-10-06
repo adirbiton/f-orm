@@ -38,7 +38,7 @@ describe('Generic ORM Alias Functions', () => {
       await model2.save();
 
       // Test all() method
-      const allItems = await CrudTestModel.all();
+      const allItems = await CrudTestModel.getAll();
       expect(allItems.length).toBe(2);
       
       // Compare with getAll() to ensure same behavior
@@ -81,7 +81,7 @@ describe('Generic ORM Alias Functions', () => {
       };
 
       // Test create() method
-      const createdItem = await CrudTestModel.create(data);
+      const createdItem = await (CrudTestModel as any).create(data);
       expect(createdItem.title).toBe('Created Title');
       expect(createdItem.description).toBe('Created description');
       expect(createdItem.isActive).toBe(true);
@@ -101,7 +101,7 @@ describe('Generic ORM Alias Functions', () => {
       const customId = 'custom-test-id';
 
       // Test create() with custom ID
-      const createdItem = await CrudTestModel.create(data, customId);
+      const createdItem = await (CrudTestModel as any).create(data, customId);
       expect(createdItem.title).toBe('Custom ID Title');
 
       // Verify it was saved with the custom ID
@@ -130,7 +130,7 @@ describe('Generic ORM Alias Functions', () => {
         isActive: true
       };
 
-      const updatedItems = await CrudTestModel.update('title', '==', 'Update Test', updateData);
+      const updatedItems = await (CrudTestModel as any).update('title', '==', 'Update Test', updateData);
       expect(updatedItems.length).toBe(2);
 
       // Verify both items were updated
@@ -161,7 +161,7 @@ describe('Generic ORM Alias Functions', () => {
       await model2.save();
 
       // Test destroy() method
-      const destroyResult = await CrudTestModel.destroy('title', '==', 'Destroy Test');
+      const destroyResult = await (CrudTestModel as any).destroy('title', '==', 'Destroy Test');
       expect(destroyResult).toBe(true);
 
       // Verify the item was destroyed

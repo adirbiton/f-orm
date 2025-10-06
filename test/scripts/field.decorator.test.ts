@@ -1,7 +1,5 @@
-import * as firebase from "firebase";
-import 'firebase/storage';
 import { FirestoreOrmRepository, Field, BaseModel, Model } from "../../index";
-import { config } from "../config";
+import { initializeTestEnvironment } from "../test-utils";
 
 // Test model with various field configurations
 @Model({
@@ -59,20 +57,8 @@ class FieldTest extends BaseModel {
   public ignoredField?: string;
 }
 
-// Initialize Firebase for tests
-let firebaseApp: any;
-let connection: any;
-let storage: any;
-
 beforeAll(() => {
-  // Initialize Firebase with test config
-  firebaseApp = firebase.initializeApp(config.api.firebase);
-  connection = firebaseApp.firestore();
-  storage = firebaseApp.storage();
-
-  // Initialize the ORM
-  FirestoreOrmRepository.initGlobalConnection(connection);
-  FirestoreOrmRepository.initGlobalStorage(storage);
+  initializeTestEnvironment();
 });
 
 describe('Field Decorator', () => {
@@ -108,7 +94,7 @@ describe('Field Decorator', () => {
     await model.save();
     
     // Get the data to check field name mapping
-    const data = model.getData();
+    const data = model.getData() as any;
     
     // Check that the field name is mapped correctly
     expect(data.custom_field_name).toBe('custom name value');
@@ -124,7 +110,7 @@ describe('Field Decorator', () => {
     await model.save();
     
     // Get the data
-    const data = model.getData();
+    const data = model.getData() as any;
     
     // Check that the text indexing metadata is added
     expect(data.textIndexedField).toBe('This is indexed text');
@@ -143,7 +129,7 @@ describe('Field Decorator', () => {
     await model.save();
     
     // Get the data
-    const data = model.getData();
+    const data = model.getData() as any;
     
     // Check that the default value is applied
     expect(model.fieldWithDefault).toBe('default value');

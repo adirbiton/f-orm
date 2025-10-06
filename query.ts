@@ -68,6 +68,7 @@ function setupAdminSDKQueryCompatibility(): void {
     onSnapshot = ((query: any, callback: any) => query.onSnapshot(callback)) as any;
     
     or = ((...queries: any[]) => ({
+        type: 'or',
         apply: (ref: any) => {
             console.warn("OR queries not directly supported in Admin SDK - using first query only");
             return queries.length > 0 ? queries[0].apply(ref) : ref;
@@ -109,6 +110,7 @@ function setupAdminSDKQueryCompatibility(): void {
     })) as any;
     
     where = ((field: string, op: string, value: any) => ({
+        type: 'where',
         apply: (ref: any) => ref.where(field, op, value)
     })) as any;
     
@@ -175,24 +177,23 @@ lazyLoadFirestoreImports();
  * Ensure query functions are loaded before use
  */
 function ensureQueryFunctionsLoaded(): void {
-  if (!getDocs || !or) {
-    // Functions not loaded yet, try to load them synchronously
-    try {
-      const connection = FirestoreOrmRepository.getGlobalConnection();
-      const firestore = connection.getFirestore();
-      
-      if (isAdminFirestore(firestore)) {
-        setupAdminSDKQueryCompatibility();
-      } else {
-        // For Client SDK, we can't load synchronously, so we'll provide a fallback
-        console.warn("Query functions not loaded yet, using fallback implementations");
-        setupFallbackQueryFunctions();
-      }
-    } catch (error) {
-      // No global connection, provide fallback implementations
-      console.warn("No global connection available, using fallback implementations");
-      setupFallbackQueryFunctions();
+  // Prefer Admin SDK compatibility when an Admin-like Firestore is detected
+  try {
+    const connection = FirestoreOrmRepository.getGlobalConnection();
+    const firestore = connection.getFirestore();
+    if (isAdminFirestore(firestore)) {
+      // Always set Admin compatibility to avoid mixing with Client SDK imports
+      setupAdminSDKQueryCompatibility();
+      return;
     }
+  } catch (error) {
+    // ignore and fallback below
+  }
+
+  // If functions are still not initialized, install fallbacks
+  if (!getDocs || !or) {
+    console.warn("Query functions not loaded yet, using fallback implementations");
+    setupFallbackQueryFunctions();
   }
 }
 

@@ -13,7 +13,7 @@ class MockTestModel extends BaseModel {
   
   // Override methods to prevent path issues in test environment
   getPathList(): any[] {
-    return [{ type: 'collection', name: 'test-collection' }];
+    return [{ type: 'collection', value: 'test-collection' }];
   }
   
   getReferencePath(): string {

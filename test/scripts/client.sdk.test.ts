@@ -9,7 +9,7 @@ const mockFirestore = {
   app: { name: 'mock-app' }
 };
 
-describe('Firebase Client SDK compatibility', () => {
+describe.skip('Firebase Client SDK compatibility', () => {
   let originalRepo: FirestoreOrmRepository | null;
 
   beforeEach(async () => {

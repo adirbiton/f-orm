@@ -1,5 +1,3 @@
-import * as firebase from "firebase";
-import 'firebase/storage';
 import { 
   FirestoreOrmRepository, 
   Field, 
@@ -8,36 +6,9 @@ import {
   BelongsTo, 
   HasMany 
 } from "../../index";
-import { config } from "../config";
+import { initializeTestEnvironment } from "../test-utils";
 
 // Define related models for testing relationships
-@Model({
-  reference_path: 'categories',
-  path_id: 'category_id'
-})
-class Category extends BaseModel {
-  @Field({
-    is_required: true,
-  })
-  public name!: string;
-
-  @Field({
-    is_required: false,
-  })
-  public description?: string;
-
-  // One-to-many: Category has many products
-  @HasMany({
-    model: RelProduct,
-    foreignKey: 'category_id'
-  })
-  public products?: RelProduct[];
-}
-
-@Model({
-  reference_path: 'products',
-  path_id: 'product_id'
-})
 class RelProduct extends BaseModel {
   @Field({
     is_required: true,
@@ -54,12 +25,24 @@ class RelProduct extends BaseModel {
     field_name: 'category_id'
   })
   public categoryId?: string;
+}
 
-  // Many-to-one: Product belongs to category
-  @BelongsTo({
-    model: Category,
-    localKey: 'categoryId'
-  })
+@Model({
+  reference_path: 'categories',
+  path_id: 'category_id'
+})
+class Category extends BaseModel {
+  @Field({ is_required: true })
+  public name!: string;
+  @Field({ is_required: false })
+  public description?: string;
+  @HasMany({ model: RelProduct, foreignKey: 'category_id' })
+  public products?: RelProduct[];
+}
+
+@Model({ reference_path: 'products', path_id: 'product_id' })
+class RelProductModel extends RelProduct {
+  @BelongsTo({ model: Category, localKey: 'categoryId' })
   public category?: Category;
 }
 
@@ -99,20 +82,8 @@ class Order extends BaseModel {
   public totalAmount?: number;
 }
 
-// Initialize Firebase for tests
-let firebaseApp: any;
-let connection: any;
-let storage: any;
-
 beforeAll(() => {
-  // Initialize Firebase with test config
-  firebaseApp = firebase.initializeApp(config.api.firebase);
-  connection = firebaseApp.firestore();
-  storage = firebaseApp.storage();
-
-  // Initialize the ORM
-  FirestoreOrmRepository.initGlobalConnection(connection);
-  FirestoreOrmRepository.initGlobalStorage(storage);
+  initializeTestEnvironment();
 });
 
 describe('Model Relationships and Complex Data', () => {
@@ -145,13 +116,13 @@ describe('Model Relationships and Complex Data', () => {
     await category.save();
     
     // Create products in that category
-    const product1 = new RelProduct();
+    const product1 = new RelProductModel();
     product1.name = 'Smartphone';
     product1.price = 699;
     product1.categoryId = category.getId();
     await product1.save();
     
-    const product2 = new RelProduct();
+    const product2 = new RelProductModel();
     product2.name = 'Laptop';
     product2.price = 1299;
     product2.categoryId = category.getId();
@@ -164,15 +135,15 @@ describe('Model Relationships and Complex Data', () => {
     
     // Check that we found the products in the category
     expect(products.length).toBe(2);
-    expect(products.map(p => p.name).sort()).toEqual(['Laptop', 'Smartphone']);
+    expect(products.map((p:any) => p.name).sort()).toEqual(['Laptop', 'Smartphone']);
     
     // Test the reverse relationship - product belongs to category
-    const productWithCategory = new RelProduct();
+    const productWithCategory = new RelProductModel();
     await productWithCategory.load(product1.getId());
     const loadedCategory = await productWithCategory.loadBelongsTo('category');
     
     expect(loadedCategory).toBeDefined();
-    expect(loadedCategory.name).toBe('Electronics');
+    expect((loadedCategory as any).name).toBe('Electronics');
     expect(loadedCategory.getId()).toBe(category.getId());
   }, 15000);
 

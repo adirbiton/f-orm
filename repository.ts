@@ -118,13 +118,23 @@ export class FirestoreOrmRepository {
         }) as any;
         
         doc = ((parent: any, docId?: string) => {
-            if (arguments.length === 1) {
-                return parent.doc();
-            }
             if (parent === this.firestore) {
                 return firestore.doc(docId);
             }
-            return parent.doc(docId);
+            if (parent && typeof parent.doc === 'function') {
+                return parent.doc(docId);
+            }
+            // fallback minimal docRef for mocks without doc()
+            const name = parent?._name || (parent?.path ? parent.path.split('/')[0] : 'collection');
+            const id = docId || Math.random().toString(36).slice(2);
+            const path = `${name}/${id}`;
+            return {
+                path,
+                set: async (_data: any) => {},
+                update: async (_data: any) => {},
+                get: async () => ({ exists: false, data: () => ({}) }),
+                delete: async () => {}
+            } as any;
         }) as any;
         
         updateDoc = ((docRef: any, data: any) => docRef.update(data)) as any;

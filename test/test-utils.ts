@@ -1,7 +1,4 @@
-import * as firebase from "firebase";
-import 'firebase/storage';
 import { FirestoreOrmRepository } from "../index";
-import { config } from "./config";
 
 /**
  * Common timeout for longer running tests
@@ -13,23 +10,124 @@ export const EXTENDED_TIMEOUT = 10000;
  * @returns Object containing the initialized firebase app, connection and storage
  */
 export const initializeTestEnvironment = () => {
-  // Initialize Firebase with test config
-  try {
-    firebase.app();
-    firebase.app('test-app').delete();
-  } catch (e) {
-    // App doesn't exist yet
-  }
+  // Create a minimal Admin-like Firestore mock for tests
+  const mockQuerySnapshot = {
+    docs: [],
+    size: 0,
+    empty: true
+  } as any;
 
-  const firebaseApp = firebase.initializeApp(config.api.firebase, 'test-app');
-  const connection = firebaseApp.firestore();
-  const storage = firebaseApp.storage();
+  const collectionImpl = (name: string) => {
+    const store: Array<{ id: string; data: any; path: string }> = [];
+    const state: any = { filters: [] as Array<(rec: { id: string; data: any }) => boolean>, limit: undefined as number | undefined };
 
-  // Initialize the ORM
-  FirestoreOrmRepository.initGlobalConnection(connection);
-  FirestoreOrmRepository.initGlobalStorage(storage);
+    const api: any = {
+      _name: name,
+      where: jest.fn((field: string, op: string, value: any) => {
+        state.filters.push((rec: { id: string; data: any }) => {
+          const v = field === '__name__' ? rec.id : rec.data[field];
+          switch (op) {
+            case '==': return v === value;
+            case '>=': return v >= value;
+            case '<=': return v <= value;
+            case '>': return v > value;
+            case '<': return v < value;
+            case 'array-contains': return Array.isArray(v) && v.includes(value);
+            default: return true;
+          }
+        });
+        return api;
+      }),
+      orderBy: jest.fn(() => api),
+      limit: jest.fn((n: number) => { state.limit = n; return api; }),
+      startAt: jest.fn(() => api),
+      onSnapshot: jest.fn((cb: any) => {
+        cb({ docChanges: () => [] });
+        return () => {};
+      }),
+      add: jest.fn(async (data: any) => {
+        const id = Math.random().toString(36).slice(2);
+        store.push({ id, data, path: `${name}/${id}` });
+        return { id };
+      }),
+      doc: jest.fn((id?: string) => {
+        const docId = id || Math.random().toString(36).slice(2);
+        const path = `${name}/${docId}`;
+        const ensure = () => {
+          let found = store.find(d => d.id === docId);
+          if (!found) {
+            found = { id: docId, data: {}, path };
+            store.push(found);
+          }
+          return found;
+        };
+        return {
+          id: docId,
+          path,
+          set: jest.fn(async (data: any) => { const f = ensure(); f.data = { ...data }; }),
+          update: jest.fn(async (data: any) => { const f = ensure(); f.data = { ...f.data, ...data }; }),
+          get: jest.fn(async () => {
+            const f = store.find(d => d.id === docId);
+            return { exists: !!f, id: docId, data: () => (f ? f.data : undefined), ref: { path } };
+          }),
+          delete: jest.fn(async () => {
+            const idx = store.findIndex(d => d.id === docId);
+            if (idx >= 0) store.splice(idx, 1);
+          }),
+          onSnapshot: jest.fn((cb: any) => { cb({ data: () => (store.find(d => d.id === docId)?.data || {}) }); return () => {}; })
+        };
+      }),
+      get: jest.fn(async () => {
+        let results = store.slice();
+        for (const filter of state.filters) {
+          results = results.filter(rec => filter(rec));
+        }
+        if (typeof state.limit === 'number') {
+          results = results.slice(0, state.limit);
+        }
+        return {
+          docs: results.map((d: any) => ({ id: d.id, data: () => d.data, ref: { path: d.path } })),
+          size: results.length,
+          empty: results.length === 0
+        };
+      })
+    };
+    return api;
+  };
 
-  return { firebaseApp, connection, storage };
+  const collectionsMap: Record<string, any> = {};
+
+  const mockFirestore: any = {
+    _settings: {},
+    collection: jest.fn((name: string) => {
+      if (!collectionsMap[name]) {
+        collectionsMap[name] = collectionImpl(name);
+        collectionsMap[name].path = name;
+      }
+      return collectionsMap[name];
+    }),
+    doc: jest.fn((path: string) => ({
+      path,
+      set: jest.fn(async (data: any) => {}),
+      update: jest.fn(async (data: any) => {}),
+      get: jest.fn(async () => ({ exists: false, data: () => ({}) })),
+      delete: jest.fn(async () => {})
+    })),
+    collectionGroup: jest.fn((name: string) => collectionImpl(name))
+  };
+
+  // Minimal storage mock
+  const mockStorage: any = {
+    ref: jest.fn(() => ({
+      put: jest.fn(() => ({ on: jest.fn((_, __, ___, done) => done && done()) })),
+      putString: jest.fn(() => ({ on: jest.fn((_, __, ___, done) => done && done()) }))
+    }))
+  };
+
+  FirestoreOrmRepository.initGlobalConnection(mockFirestore);
+  FirestoreOrmRepository.initGlobalStorage(mockStorage);
+
+  return { firebaseApp: null, connection: mockFirestore, storage: mockStorage };
 };
 
 /**

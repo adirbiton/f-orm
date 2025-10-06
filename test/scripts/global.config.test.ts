@@ -1,5 +1,11 @@
 import { FirestoreOrmRepository, Field, BaseModel, Model, toSnakeCase, classNameToPathId } from "../../index";
 
+import { initializeTestEnvironment } from "../test-utils";
+
+beforeAll(() => {
+  initializeTestEnvironment();
+});
+
 describe('Case Conversion Utilities', () => {
   test('toSnakeCase should convert camelCase to snake_case', () => {
     expect(toSnakeCase('cartItem')).toBe('cart_item');
@@ -216,8 +222,8 @@ describe('Auto Path ID', () => {
     const user = new User();
     const cart = new ShoppingCart();
 
-    expect(user.pathId).toBe('user_id');
-    expect(cart.pathId).toBe('shopping_cart_id');
+    expect((user as any).pathId).toBe('user_id');
+    expect((cart as any).pathId).toBe('shopping_cart_id');
   });
 
   test('should respect explicit path_id over auto generation', () => {
@@ -247,9 +253,9 @@ describe('Auto Path ID', () => {
     const product = new Product();
 
     // Explicit path_id should be used
-    expect(user.pathId).toBe('custom_user_id');
+    expect((user as any).pathId).toBe('custom_user_id');
     // Auto-generated path_id should be used
-    expect(product.pathId).toBe('product_id');
+    expect((product as any).pathId).toBe('product_id');
   });
 
   test('should work with complex class names', () => {
@@ -276,8 +282,8 @@ describe('Auto Path ID', () => {
     const profile = new UserProfile();
     const request = new HTTPRequest();
 
-    expect(profile.pathId).toBe('user_profile_id');
-    expect(request.pathId).toBe('h_t_t_p_request_id');
+    expect((profile as any).pathId).toBe('user_profile_id');
+    expect((request as any).pathId).toBe('h_t_t_p_request_id');
   });
 });
 
@@ -308,7 +314,7 @@ describe('Combined Functionality', () => {
     const cart = new ShoppingCart();
 
     // Path ID should be auto-generated
-    expect(cart.pathId).toBe('shopping_cart_id');
+    expect((cart as any).pathId).toBe('shopping_cart_id');
 
     // Field names should be auto-converted except for explicit ones
     expect(cart.getFieldName('cartItem')).toBe('cart_item');
@@ -443,39 +449,19 @@ describe('Path ID Uniqueness Validation', () => {
       auto_path_id: true
     });
 
-    expect(() => {
-      @Model({
-        reference_path: 'user_profiles'
-      })
-      class UserProfile extends BaseModel {
-        @Field({ is_required: true })
-        public bio!: string;
-      }
+    @Model({ reference_path: 'user_profiles' })
+    class UserProfile extends BaseModel { @Field({ is_required: true }) public bio!: string; }
+    @Model({ reference_path: 'shopping_carts' })
+    class ShoppingCart extends BaseModel { @Field({ is_required: true }) public items!: string[]; }
+    @Model({ reference_path: 'http_requests' })
+    class HTTPRequest extends BaseModel { @Field({ is_required: true }) public url!: string; }
 
-      @Model({
-        reference_path: 'shopping_carts'
-      })
-      class ShoppingCart extends BaseModel {
-        @Field({ is_required: true })
-        public items!: string[];
-      }
-
-      @Model({
-        reference_path: 'http_requests'
-      })
-      class HTTPRequest extends BaseModel {
-        @Field({ is_required: true })
-        public url!: string;
-      }
-    }).not.toThrow();
-
-    // Verify the path_ids are what we expect
     const profile = new UserProfile();
     const cart = new ShoppingCart();
     const request = new HTTPRequest();
 
-    expect(profile.pathId).toBe('user_profile_id');
-    expect(cart.pathId).toBe('shopping_cart_id');
-    expect(request.pathId).toBe('h_t_t_p_request_id');
+    expect((profile as any).pathId).toBe('user_profile_id');
+    expect((cart as any).pathId).toBe('shopping_cart_id');
+    expect((request as any).pathId).toBe('h_t_t_p_request_id');
   });
 });

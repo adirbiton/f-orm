@@ -1,4 +1,5 @@
-import { Field, BaseModel, Model, BelongsTo, HasMany } from "../../index";
+import { Field, BaseModel, Model, BelongsTo, HasMany, FirestoreOrmRepository } from "../../index";
+import { initializeTestEnvironment } from "../test-utils";
 
 @Model({
   reference_path: 'simple_models',
@@ -10,6 +11,9 @@ class SimpleModel extends BaseModel {
 }
 
 describe('Relationship Decorators Basic Functionality', () => {
+  beforeAll(() => {
+    initializeTestEnvironment();
+  });
   test('should have relationship loading methods available on BaseModel', () => {
     const model = new SimpleModel();
 
