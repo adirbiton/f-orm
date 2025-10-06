@@ -9,7 +9,30 @@ export const EXTENDED_TIMEOUT = 10000;
  * Initializes Firebase and ORM for testing
  * @returns Object containing the initialized firebase app, connection and storage
  */
+export const usingEmulator = (): boolean => {
+  return !!process.env.FIRESTORE_EMULATOR_HOST;
+};
+
 export const initializeTestEnvironment = () => {
+  // Prefer Firebase Emulator if available
+  if (usingEmulator()) {
+    try {
+      // Lazy require to avoid hard dependency when not needed
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const admin = require('firebase-admin');
+      if (admin.apps && admin.apps.length === 0) {
+        admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT || 'demo-test' });
+      }
+      const firestore = admin.firestore();
+      const storage = admin.storage && admin.storage();
+      FirestoreOrmRepository.initGlobalConnection(firestore);
+      if (storage) FirestoreOrmRepository.initGlobalStorage(storage);
+      return { firebaseApp: admin.app(), connection: firestore, storage };
+    } catch (e) {
+      // Fallback to in-memory mocks below
+    }
+  }
+
   // Create a minimal Admin-like Firestore mock for tests
   const mockQuerySnapshot = {
     docs: [],
