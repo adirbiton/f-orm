@@ -136,8 +136,17 @@ export const initializeTestEnvironment = () => {
       get: jest.fn(async () => ({ exists: false, data: () => ({}) })),
       delete: jest.fn(async () => {})
     })),
-    collectionGroup: jest.fn((name: string) => collectionImpl(name))
+    // naive collectionGroup: return a query over all collections with this name
+    collectionGroup: jest.fn((name: string) => {
+      // Merge all stores with prefix name; here we just return a fresh collection with empty store
+      return collectionImpl(name);
+    })
   };
+
+  // Admin-like query helpers expected by repository/query
+  mockFirestore.where = (field: string, op: string, value: any) => ({ type: 'where', apply: (ref: any) => ref.where(field, op, value) });
+  mockFirestore.orderBy = (field: string, dir?: 'asc'|'desc') => ({ type: 'orderBy', apply: (ref: any) => ref.orderBy(field, dir) });
+  mockFirestore.limit = (n: number) => ({ type: 'limit', apply: (ref: any) => ref.limit(n) });
 
   // Minimal storage mock
   const mockStorage: any = {
